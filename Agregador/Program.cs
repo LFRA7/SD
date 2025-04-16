@@ -26,29 +26,76 @@ class Agregador
     {
         TcpClient wavyClient = (TcpClient)obj;
         using (NetworkStream wavyStream = wavyClient.GetStream())
-        using (var wavyReader = new System.IO.StreamReader(wavyStream, Encoding.UTF8))
-        using (var wavyWriter = new System.IO.StreamWriter(wavyStream, Encoding.UTF8) { AutoFlush = true })
+        using (var wavyReader = new StreamReader(wavyStream, Encoding.UTF8))
+        using (var wavyWriter = new StreamWriter(wavyStream, Encoding.UTF8) { AutoFlush = true })
         {
             try
             {
-                string msg = wavyReader.ReadLine();
-                Console.WriteLine($"[AGREGADOR] Recebido do WAVY: {msg}");
-
-                if (msg.StartsWith("HELLO:"))
+                string msg;
+                while ((msg = wavyReader.ReadLine()) != null)
                 {
-                    // Enviar HELLO ao servidor
-                    string id = msg.Split(':')[1];
-                    string serverResponse = SendToServer($"HELLO:{id}");
-                    wavyWriter.WriteLine(serverResponse);
-                }
+                    Console.WriteLine($"[AGREGADOR] Recebido do WAVY: {msg}");
+                    if (msg.StartsWith("HELLO:"))
+                    {
+                        // Responder diretamente ao WAVY
+                        wavyWriter.WriteLine("100 OK");
+                        wavyWriter.Flush();
+                        Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 100 OK");
+                    }
+                    else if (msg.StartsWith("DATA:"))
+                    {
+                        string fileName = msg.Substring(5).Trim('"');
 
-                msg = wavyReader.ReadLine();
-                if (msg == "QUIT")
-                {
-                    string serverResponse = SendToServer("QUIT");
-                    wavyWriter.WriteLine(serverResponse);
+                        string filePath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Agregador\Data", $"Dados-{fileName}");
+
+                        // Certifique-se de que a pasta Data existe
+                        Directory.CreateDirectory("Data");
+
+                        using (var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write))
+                        using (var fileWriter = new StreamWriter(fileStream, Encoding.UTF8))
+                        {
+                            string fileContent;
+                            while ((fileContent = wavyReader.ReadLine()) != null && fileContent != "END")
+                            {
+                                fileWriter.WriteLine(fileContent);
+                                // Enviar resposta para cada linha recebida
+                                wavyWriter.WriteLine("100 OK");
+                                Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 100 OK");
+                            }
+                        }
+                        Console.WriteLine($"[AGREGADOR] Arquivo {fileName} recebido e salvo como Dados-{fileName}.csv");
+
+                        // Enviar resposta 100 OK ao WAVY
+                        wavyWriter.WriteLine("100 OK");
+                        Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 100 OK");
+                    }
+                    else if (msg == "QUIT")
+                    {
+
+                        // Enviar resposta 400 BYE ao WAVY
+                        wavyWriter.WriteLine("400 BYE");
+                        Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 400 BYE");
+                        Console.WriteLine("[AGREGADOR] Aguardando resposta do servidor");
+
+
+                        // Enviar QUIT ao servidor
+                        string serverResponse = SendToServer("QUIT");
+                        Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {serverResponse}");
+
+                        // Encerrar a conexão após receber 400 BYE do servidor
+                        if (serverResponse == "400 BYE")
+                        {
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[AGREGADOR] Comando desconhecido: {msg}");
+                        wavyWriter.WriteLine("500 ERROR");
+                        Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 500 ERROR");
+                    }
+                  }
                 }
-            }
             catch (Exception ex)
             {
                 Console.WriteLine($"[AGREGADOR] Erro: {ex.Message}");
@@ -65,8 +112,8 @@ class Agregador
         {
             using (TcpClient serverClient = new TcpClient(serverIP, serverPort))
             using (NetworkStream serverStream = serverClient.GetStream())
-            using (var reader = new System.IO.StreamReader(serverStream, Encoding.UTF8))
-            using (var writer = new System.IO.StreamWriter(serverStream, Encoding.UTF8) { AutoFlush = true })
+            using (var reader = new StreamReader(serverStream, Encoding.UTF8))
+            using (var writer = new StreamWriter(serverStream, Encoding.UTF8) { AutoFlush = true })
             {
                 writer.WriteLine(message);
                 Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: {message}");

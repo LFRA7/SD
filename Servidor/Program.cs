@@ -39,11 +39,25 @@ class Servidor
                     writer.WriteLine("100 OK");
                     Console.WriteLine("[SERVIDOR] Enviado: 100 OK");
                 }
-                else if (msg == "QUIT")
+                // Entrada comandos
+                string command;
+                do
                 {
-                    writer.WriteLine("400 BYE");
-                    Console.WriteLine("[SERVIDOR] Enviado: 400 BYE");
-                }
+                    Console.Write("Digite o comando para enviar ao cliente (ou QUIT para sair): ");
+                    command = Console.ReadLine();
+                    writer.WriteLine(command);
+                    Console.WriteLine($"[SERVIDOR] Enviado: {command}");
+
+                    if (command != "QUIT")
+                    {
+                        string response = reader.ReadLine();
+                        Console.WriteLine($"[SERVIDOR] Recebido: {response}");
+                    }
+                } while (command != "QUIT");
+
+                // Lê resposta final
+                string finalResponse = reader.ReadLine();
+                Console.WriteLine($"[SERVIDOR] Recebido: {finalResponse}");
             }
             catch (Exception ex)
             {
