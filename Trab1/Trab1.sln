@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35806.99 d17.13
+VisualStudioVersion = 17.13.35806.99
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Trab1", "Trab1.csproj", "{18C188CA-0FA1-4A75-B9EF-FBFA521670E6}"
 EndProject
@@ -19,13 +19,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wavy", "..\Wavy\Wavy.csproj
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Data", "Data", "{DB2DFDC5-82D2-4666-A196-89E0571D9270}"
 	ProjectSection(SolutionItems) = preProject
-		Dados.csv = Dados.csv
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Data", "Data", "{A16DBB6F-5602-4828-BD66-3B8ADC6D7A1B}"
-	ProjectSection(SolutionItems) = preProject
-		temperatura.csv = temperatura.csv
-		temperaturaAr.csv = temperaturaAr.csv
+		..\Agregador\Data\Dados.csv = ..\Agregador\Data\Dados.csv
 	EndProjectSection
 EndProject
 Global
@@ -58,7 +52,6 @@ Global
 		{DF6B72DE-8674-48D6-881A-1D5A000AB638} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{F227E22E-07A8-4C02-A490-797189A2159F} = {82743E5F-D3DB-442B-B68F-CB63B9805CA5}
 		{290179F2-A36E-47A9-9D16-3103FA81B30B} = {22FE0B15-22E8-4C27-8F9B-D518988A188D}
-		{A16DBB6F-5602-4828-BD66-3B8ADC6D7A1B} = {22FE0B15-22E8-4C27-8F9B-D518988A188D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {19E256CE-85DE-4B8A-AF0C-14CEF2D77EB6}

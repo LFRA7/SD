@@ -1,5 +1,6 @@
 ﻿// Servidor/Program.cs
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -26,42 +27,62 @@ class Servidor
     {
         TcpClient client = (TcpClient)obj;
         using (NetworkStream stream = client.GetStream())
-        using (var reader = new System.IO.StreamReader(stream, Encoding.UTF8))
-        using (var writer = new System.IO.StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
+        using (var reader = new StreamReader(stream, Encoding.UTF8))
+        using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
         {
             try
             {
-                string msg = reader.ReadLine();
-                Console.WriteLine($"[SERVIDOR] Recebido: {msg}");
-
-                if (msg.StartsWith("HELLO:"))
+                while (true)
                 {
-                    writer.WriteLine("100 OK");
-                    Console.WriteLine("[SERVIDOR] Enviado: 100 OK");
-                }
-                // Entrada comandos
-                string command;
-                do
-                {
-                    Console.Write("Digite o comando para enviar ao cliente (ou QUIT para sair): ");
-                    command = Console.ReadLine();
-                    writer.WriteLine(command);
-                    Console.WriteLine($"[SERVIDOR] Enviado: {command}");
+                    string msg = reader.ReadLine();
+                    if (string.IsNullOrEmpty(msg)) break;
 
-                    if (command != "QUIT")
+                    Console.WriteLine($"[SERVIDOR] Recebido: {msg}");
+
+                    if (msg.StartsWith("HELLO:"))
                     {
-                        string response = reader.ReadLine();
-                        Console.WriteLine($"[SERVIDOR] Recebido: {response}");
+                        writer.WriteLine("100 OK");
+                        Console.WriteLine("[SERVIDOR] Enviado: 100 OK");
                     }
-                } while (command != "QUIT");
+                    else if (msg.StartsWith("DATA:"))
+                    {
+                        string fileName = msg.Substring(5).Trim();
+                        string filePath = Path.Combine(@"C:\\Users\\barba\\source\\repos\\SD-PL1-GP5\\Servidor\\Data", fileName);
+                        Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
-                // Lê resposta final
-                string finalResponse = reader.ReadLine();
-                Console.WriteLine($"[SERVIDOR] Recebido: {finalResponse}");
+                        writer.WriteLine("100 OK");
+                        Console.WriteLine($"[SERVIDOR] Preparando para salvar {fileName}...");
+
+                        using (var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write))
+                        using (var fileWriter = new StreamWriter(fileStream, Encoding.UTF8))
+                        {
+                            string fileContent;
+                            while ((fileContent = reader.ReadLine()) != null)
+                            {
+                                if (fileContent == "END") break;
+                                fileWriter.WriteLine(fileContent);
+                                fileWriter.Flush();
+                                Console.WriteLine($"[SERVIDOR] Gravado: {fileContent}");
+                            }
+                        }
+
+                        writer.WriteLine("100 OK");
+                        Console.WriteLine($"[SERVIDOR] Arquivo {fileName} salvo com sucesso.");
+                    }
+                }
+            }
+            catch (IOException ex)
+            {
+                Console.WriteLine($"[SERVIDOR] Erro de conexão: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[SERVIDOR] Erro: {ex.Message}");
+                Console.WriteLine($"[SERVIDOR] Erro inesperado: {ex.Message}");
+            }
+            finally
+            {
+                client.Close();
+                Console.WriteLine("[SERVIDOR] Cliente desconectado.");
             }
         }
     }

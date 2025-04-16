@@ -49,7 +49,9 @@ class Agregador
                         string filePath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Agregador\Data", $"Dados-{fileName}");
 
                         // Certifique-se de que a pasta Data existe
-                        Directory.CreateDirectory("Data");
+                        Directory.CreateDirectory(@"C:\Users\barba\source\repos\SD-PL1-GP5\Agregador\Data");
+
+                        bool shouldSendToServer = false;
 
                         using (var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write))
                         using (var fileWriter = new StreamWriter(fileStream, Encoding.UTF8))
@@ -57,17 +59,41 @@ class Agregador
                             string fileContent;
                             while ((fileContent = wavyReader.ReadLine()) != null && fileContent != "END")
                             {
+                                // Escreve todos as linhas no ficheiro
                                 fileWriter.WriteLine(fileContent);
-                                // Enviar resposta para cada linha recebida
-                                wavyWriter.WriteLine("100 OK");
-                                Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 100 OK");
                             }
                         }
-                        Console.WriteLine($"[AGREGADOR] Arquivo {fileName} recebido e salvo como Dados-{fileName}.csv");
-
-                        // Enviar resposta 100 OK ao WAVY
                         wavyWriter.WriteLine("100 OK");
-                        Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 100 OK");
+                        Console.WriteLine($"[AGREGADOR] Enviado ao WAVY: 100 OK");
+
+                        Console.WriteLine($"[AGREGADOR] Arquivo {fileName} atualizado com novos dados.");
+
+                        // Verifica se o arquivo tem 10 ou mais linhas
+                        int lineCount = File.ReadLines(filePath).Count();
+                        if (lineCount >= 10)
+                        {
+                            shouldSendToServer = true;
+                        }
+
+                        if (shouldSendToServer)
+                        {
+                            Console.WriteLine($"[AGREGADOR] Arquivo atingiu {lineCount} linhas. Enviando para o Servidor...");
+
+                            string response = SendToServer($"DATA:{fileName}");
+                            if (response == "100 OK")
+                            {
+                                using (StreamReader reader = new StreamReader(filePath))
+                                {
+                                    string line;
+                                    while ((line = reader.ReadLine()) != null)
+                                    {
+                                        SendToServer(line);  // Envia cada linha do arquivo para o servidor
+                                    }
+                                }
+                                SendToServer("END");  // Finaliza o envio para o servidor
+
+                            }
+                        }
                     }
                     else if (msg == "QUIT")
                     {
