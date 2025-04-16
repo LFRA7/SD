@@ -49,7 +49,7 @@ class Agregador
                         string filePath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Agregador\Data", $"Dados-{fileName}");
 
                         // Certifique-se de que a pasta Data existe
-                        Directory.CreateDirectory(@"C:\Users\barba\source\repos\SD-PL1-GP5\Agregador\Data");
+                        Directory.CreateDirectory(@"C:\Users\lucas\source\repos\LFRA7\SD\Agregador\Data");
 
                         bool shouldSendToServer = false;
 

@@ -61,7 +61,7 @@ class Wavy
                         Console.WriteLine($"[WAVY] Enviado conteúdo do arquivo: {fileName}");
 
                         string aggResponse = ReceiveMessage();
-                        Console.WriteLine($"[WAVY] Resposta do Agregador: {aggResponse}");
+                        Console.WriteLine($"[WAVY] Recebido: {aggResponse}");
                     }
                     else
                     {
@@ -74,6 +74,11 @@ class Wavy
                     Console.WriteLine($"[WAVY] Enviado: {command}");
                     response = ReceiveMessage();
                     Console.WriteLine($"[WAVY] Recebido: {response}");
+
+                    if (response == "SEND_COMPLETE")
+                    {
+                        Console.WriteLine("[WAVY] O Agregador terminou de enviar os dados ao servidor.");
+                    }
                 }
             } while (command != "QUIT");
 
