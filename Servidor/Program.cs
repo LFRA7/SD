@@ -47,7 +47,7 @@ class Servidor
                     else if (msg.StartsWith("DATA:"))
                     {
                         string fileName = msg.Substring(5).Trim();
-                        string filePath = Path.Combine(@"C:\\Users\\barba\\source\\repos\\SD-PL1-GP5\\Servidor\\Data", fileName);
+                        string filePath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", fileName);
                         Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
                         writer.WriteLine("100 OK");
