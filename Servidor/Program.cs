@@ -18,7 +18,7 @@ class Servidor
         int port = 6000;
         TcpListener listener = new TcpListener(IPAddress.Any, port);
         listener.Start();
-        Console.WriteLine("[SERVIDOR] Servido ligado!");
+        Console.WriteLine("[SERVIDOR] Servidor ligado!");
 
         // Criação de Threads para lidar com várias Wavys
         while (true)
