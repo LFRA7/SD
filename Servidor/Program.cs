@@ -47,27 +47,36 @@ class Servidor
                     else if (msg.StartsWith("DATA:"))
                     {
                         string fileName = msg.Substring(5).Trim();
-                        string filePath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", fileName);
+                        string currentDate = DateTime.Now.ToString("dd-MM-yyyy");
+                        string currentTime = DateTime.Now.ToString("HH-mm");
+                        string newFileName = $"Dados-{currentDate}_{currentTime}-{fileName}";
+                        string filePath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", newFileName);
                         Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
                         writer.WriteLine("100 OK");
-                        Console.WriteLine($"[SERVIDOR] Preparando para salvar {fileName}...");
+                        Console.WriteLine($"[SERVIDOR] A Guardar {newFileName}...");
 
-                        using (var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write))
-                        using (var fileWriter = new StreamWriter(fileStream, Encoding.UTF8))
+                        using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
                         {
                             string fileContent;
                             while ((fileContent = reader.ReadLine()) != null)
                             {
                                 if (fileContent == "END") break;
-                                fileWriter.WriteLine(fileContent);
-                                fileWriter.Flush();
+                                byte[] contentBytes = Encoding.UTF8.GetBytes(fileContent + Environment.NewLine);
+                                fileStream.Write(contentBytes, 0, contentBytes.Length);
+                                fileStream.Flush();
                                 Console.WriteLine($"[SERVIDOR] Gravado: {fileContent}");
                             }
                         }
 
                         writer.WriteLine("100 OK");
-                        Console.WriteLine($"[SERVIDOR] Arquivo {fileName} salvo com sucesso.");
+                        Console.WriteLine($"[SERVIDOR] Arquivo {newFileName} salvo com sucesso.");
+                    }
+                    else if (msg == "QUIT")
+                    {
+                        writer.WriteLine("400 BYE");
+                        Console.WriteLine("[SERVIDOR] Enviado: 400 BYE");
+                        break; // Exit the processing loop
                     }
                 }
             }

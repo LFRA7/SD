@@ -75,10 +75,10 @@ class Wavy
                     response = ReceiveMessage();
                     Console.WriteLine($"[WAVY] Recebido: {response}");
 
-                    if (response == "SEND_COMPLETE")
-                    {
-                        Console.WriteLine("[WAVY] O Agregador terminou de enviar os dados ao servidor.");
-                    }
+                    //if (response == "SEND_COMPLETE")
+                    //{
+                    //    Console.WriteLine("[WAVY] O Agregador terminou de enviar os dados ao servidor.");
+                    //}
                 }
             } while (command != "QUIT");
 

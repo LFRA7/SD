@@ -79,18 +79,49 @@ class Agregador
                         {
                             Console.WriteLine($"[AGREGADOR] Arquivo atingiu {lineCount} linhas. Enviando para o Servidor...");
 
-                            string response = SendToServer($"DATA:{fileName}");
-                            if (response == "100 OK")
+                            TcpClient serverClient = new TcpClient("127.0.0.1", 6000);
+                            NetworkStream serverStream = serverClient.GetStream();
+                            StreamReader serverReader = new StreamReader(serverStream, Encoding.UTF8);
+                            StreamWriter serverWriter = new StreamWriter(serverStream, Encoding.UTF8) { AutoFlush = true };
+
+                            try
                             {
-                                using (StreamReader reader = new StreamReader(filePath))
+                                serverWriter.WriteLine($"DATA:{fileName}");
+                                Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: DATA:{fileName}");
+
+                                string response = serverReader.ReadLine();
+                                Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");
+
+                                if (response == "100 OK")
                                 {
-                                    string line;
-                                    while ((line = reader.ReadLine()) != null)
+                                    using (StreamReader fileReader = new StreamReader(filePath))
                                     {
-                                        SendToServer(line);  // Envia cada linha do arquivo para o servidor
+                                        string line;
+                                        while ((line = fileReader.ReadLine()) != null)
+                                        {
+                                            serverWriter.WriteLine(line);
+                                            Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: {line}");
+                                        }
                                     }
+                                    serverWriter.WriteLine("END");
+                                    Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: END");
+
+                                    // Get final confirmation
+                                    response = serverReader.ReadLine();
+                                    Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");
+
+                                    //// Inform WAVY
+                                    //wavyWriter.WriteLine("SEND_COMPLETE");
+                                    //wavyWriter.Flush();
                                 }
-                                SendToServer("END");  // Finaliza o envio para o servidor
+                            }
+                            finally
+                            {
+                                // Clean up
+                                serverReader.Close();
+                                serverWriter.Close();
+                                serverStream.Close();
+                                serverClient.Close();
 
                             }
                         }
@@ -129,29 +160,65 @@ class Agregador
         }
     }
 
-    static string SendToServer(string message)
+    static string SendToServer(string message, TcpClient existingClient = null,
+                           StreamReader existingReader = null,
+                           StreamWriter existingWriter = null,
+                           bool keepConnection = false)
     {
         string serverIP = "127.0.0.1";
         int serverPort = 6000;
+        bool ownsConnection = existingClient == null;
+
+        TcpClient serverClient = null;
+        NetworkStream serverStream = null;
+        StreamReader reader = null;
+        StreamWriter writer = null;
 
         try
         {
-            using (TcpClient serverClient = new TcpClient(serverIP, serverPort))
-            using (NetworkStream serverStream = serverClient.GetStream())
-            using (var reader = new StreamReader(serverStream, Encoding.UTF8))
-            using (var writer = new StreamWriter(serverStream, Encoding.UTF8) { AutoFlush = true })
+            if (existingClient == null)
             {
-                writer.WriteLine(message);
-                Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: {message}");
-                string response = reader.ReadLine();
+                serverClient = new TcpClient(serverIP, serverPort);
+                serverStream = serverClient.GetStream();
+                reader = new StreamReader(serverStream, Encoding.UTF8);
+                writer = new StreamWriter(serverStream, Encoding.UTF8) { AutoFlush = true };
+            }
+            else
+            {
+                serverClient = existingClient;
+                reader = existingReader;
+                writer = existingWriter;
+            }
+
+            writer.WriteLine(message);
+            Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: {message}");
+            string response = "NO_RESPONSE";
+            if (message.StartsWith("DATA:") || message.StartsWith("HELLO:") || message == "QUIT" || message == "END")
+            {
+                response = reader.ReadLine();
                 Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");
+            }
+            if (keepConnection && ownsConnection)
+            {
                 return response;
             }
+            return response;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[AGREGADOR] Erro ao comunicar com o servidor: {ex.Message}");
             return "500 ERROR";
+        }
+        finally
+        {
+            // Only close the connection if we created it and don't need to keep it
+            if (ownsConnection && !keepConnection)
+            {
+                reader?.Close();
+                writer?.Close();
+                serverStream?.Close();
+                serverClient?.Close();
+            }
         }
     }
 }
