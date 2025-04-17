@@ -24,6 +24,8 @@ class Agregador
 
     static void HandleClient(object obj)
     {
+        string currentWavyId = "unknown";
+
         TcpClient wavyClient = (TcpClient)obj;
         using (NetworkStream wavyStream = wavyClient.GetStream())
         using (var wavyReader = new StreamReader(wavyStream, Encoding.UTF8))
@@ -37,10 +39,31 @@ class Agregador
                     Console.WriteLine($"[AGREGADOR] Recebido do WAVY: {msg}");
                     if (msg.StartsWith("HELLO:"))
                     {
-                        // Responder diretamente ao WAVY
-                        wavyWriter.WriteLine("100 OK");
-                        wavyWriter.Flush();
-                        Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 100 OK");
+                        currentWavyId = msg.Substring(6).Trim();
+
+                        // Verificar se já existe um Wavy com este ID que esteja ativo
+                        bool idJaAssociado = VerificarWavyIdAssociado(currentWavyId);
+
+                        if (idJaAssociado)
+                        {
+                            // ID já está em uso, enviar erro
+                            wavyWriter.WriteLine("401 ID_IN_USE");
+                            wavyWriter.Flush();
+                            Console.WriteLine($"[AGREGADOR] Enviado ao WAVY: 401 ID_IN_USE - ID {currentWavyId} já está associado");
+
+                            // Resetar o ID atual pois a associação falhou
+                            currentWavyId = "unknown";
+                        }
+                        else
+                        {
+                            // Update the Wavy status file
+                            UpdateWavyStatus(currentWavyId, "Associado");
+
+                            // Respond to WAVY
+                            wavyWriter.WriteLine("100 OK");
+                            wavyWriter.Flush();
+                            Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 100 OK");
+                        }
                     }
                     else if (msg.StartsWith("DATA:"))
                     {
@@ -70,7 +93,7 @@ class Agregador
 
                         // Verifica se o arquivo tem 10 ou mais linhas
                         int lineCount = File.ReadLines(filePath).Count();
-                        if (lineCount >= 10)
+                        if (lineCount >= 20)
                         {
                             shouldSendToServer = true;
                         }
@@ -110,9 +133,29 @@ class Agregador
                                     response = serverReader.ReadLine();
                                     Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");
 
-                                    //// Inform WAVY
-                                    //wavyWriter.WriteLine("SEND_COMPLETE");
-                                    //wavyWriter.Flush();
+                                    if (response != null && response.Trim() == "100 OK")
+                                    {
+
+                                        try
+                                        {
+                                            // Fechar qualquer handle aberto para o arquivo
+                                            GC.Collect();
+                                            GC.WaitForPendingFinalizers();
+
+                                            // Apagar o conteúdo do arquivo
+                                            using (FileStream fs = new FileStream(filePath, FileMode.Truncate, FileAccess.Write))
+                                            {
+                                                // O modo Truncate reduz o tamanho para zero
+                                                fs.SetLength(0);
+                                            }
+
+                                            Console.WriteLine($"[AGREGADOR] Arquivo {fileName} limpo após envio ao servidor.");
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Console.WriteLine($"[AGREGADOR] Erro ao limpar o arquivo: {ex.Message}");
+                                        }
+                                    }
                                 }
                             }
                             finally
@@ -139,6 +182,8 @@ class Agregador
                         string serverResponse = SendToServer("QUIT");
                         Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {serverResponse}");
 
+                        UpdateWavyStatus(currentWavyId, "Desativado");
+
                         // Encerrar a conexão após receber 400 BYE do servidor
                         if (serverResponse == "400 BYE")
                         {
@@ -158,6 +203,72 @@ class Agregador
                 Console.WriteLine($"[AGREGADOR] Erro: {ex.Message}");
             }
         }
+    }
+
+    static void UpdateWavyStatus(string wavyId, string status)
+    {
+        string wavysFilePath = Path.Combine(@"C:\\Users\\lucas\\source\\repos\\LFRA7\\SD\\Agregador\\Data", "Wavys.csv");
+
+        // Ensure directory exists
+        Directory.CreateDirectory(Path.GetDirectoryName(wavysFilePath));
+
+        // Current timestamp for last_sync
+        string lastSync = DateTime.Now.ToString("dd-MM-yyyy_HH-mm-ss");
+
+        // Format the new line to add
+        string wavyEntry = $"{wavyId}:{status}:{lastSync}";
+
+        // Dictionary to hold updated records
+        Dictionary<string, string> wavyRecords = new Dictionary<string, string>();
+
+        // Read existing records if file exists
+        if (File.Exists(wavysFilePath))
+        {
+            foreach (string line in File.ReadLines(wavysFilePath))
+            {
+                string[] parts = line.Split(':', 2); // Split only at first colon to get ID
+                if (parts.Length >= 2)
+                {
+                    string id = parts[0];
+                    wavyRecords[id] = line; // Store the full line
+                }
+            }
+        }
+
+        // Update or add the new record
+        wavyRecords[wavyId] = wavyEntry;
+
+        // Write all records back to the file
+        using (StreamWriter writer = new StreamWriter(wavysFilePath, false))
+        {
+            foreach (string record in wavyRecords.Values)
+            {
+                writer.WriteLine(record);
+            }
+        }
+
+        Console.WriteLine($"[AGREGADOR] Atualizado status do Wavy {wavyId}: {status}");
+    }
+
+    static bool VerificarWavyIdAssociado(string wavyId)
+    {
+        string wavysFilePath = Path.Combine(@"C:\\Users\\lucas\\source\\repos\\LFRA7\\SD\\Agregador\\Data", "Wavys.csv");
+
+        // Se o arquivo não existir, não há Wavys associados
+        if (!File.Exists(wavysFilePath))
+            return false;
+
+        // Ler o arquivo e verificar se há um Wavy com o mesmo ID e status "Associado"
+        foreach (string line in File.ReadLines(wavysFilePath))
+        {
+            string[] parts = line.Split(':');
+            if (parts.Length >= 3 && parts[0] == wavyId && parts[1] == "Associado")
+            {
+                return true; // ID já está associado
+            }
+        }
+
+        return false; // ID não está associado ou tem outro status
     }
 
     static string SendToServer(string message, TcpClient existingClient = null,
