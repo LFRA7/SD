@@ -101,8 +101,8 @@ class Agregador
                             }
                         }
                     }
-                    // Processamento do comando DATA para receber dados
-                    else if (msg.StartsWith("DATA:"))
+                    // Processamento do comando SEND para receber dados
+                    else if (msg.StartsWith("SEND:"))
                     {
                         // Usa um mutex para garantir acesso exclusivo aos ficheiros
                         mutex.WaitOne();
@@ -157,8 +157,8 @@ class Agregador
                                 try
                                 {
                                     // Informa o servidor sobre o envio de dados
-                                    serverWriter.WriteLine($"DATA:{fileName}");
-                                    Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: DATA:{fileName}");
+                                    serverWriter.WriteLine($"SEND:{fileName}");
+                                    Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: SEND:{fileName}");
 
                                     string response = serverReader.ReadLine();
                                     Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");
@@ -246,8 +246,8 @@ class Agregador
                     else if (msg == "QUIT")
                     {
                         // Envia confirmação de encerramento
-                        wavyWriter.WriteLine("400 CLOSED");
-                        Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 400 CLOSED");
+                        wavyWriter.WriteLine("410 CLOSED");
+                        Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 410 CLOSED");
                         Console.WriteLine("[AGREGADOR] A aguardar resposta do servidor");
 
                         // Notifica o servidor sobre a desconexão
@@ -257,7 +257,7 @@ class Agregador
                         // Atualiza o estado do Wavy para Desativado
                         UpdateWavyStatus(currentWavyId, "Desativado");
 
-                        if (serverResponse == "400 CLOSED")
+                        if (serverResponse == "410 CLOSED")
                         {
                             break;
                         }
@@ -326,7 +326,7 @@ class Agregador
 
             // Aguarda resposta apenas para comandos específicos
             string response = "NO_RESPONSE";
-            if (message.StartsWith("DATA:") || message.StartsWith("HELLO:") || message == "QUIT" || message == "END")
+            if (message.StartsWith("SEND:") || message.StartsWith("HELLO:") || message == "QUIT" || message == "END")
             {
                 response = reader.ReadLine();
                 Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");

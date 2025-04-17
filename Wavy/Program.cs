@@ -68,8 +68,8 @@ class Wavy
                 Console.Write("Digite o comando (ou QUIT para sair): ");
                 command = Console.ReadLine();
 
-                // Comando DATA para envio de ficheiros
-                if (command.StartsWith("DATA "))
+                // Comando SEND para envio de ficheiros
+                if (command.StartsWith("SEND "))
                 {
                     string fileName = command.Substring(5).Trim().Trim('"').Trim('\'');
                     string filePath = Path.Combine(@"C:\\Users\\lucas\\source\\repos\\LFRA7\\SD\\Wavy\\Data", fileName);
@@ -77,8 +77,8 @@ class Wavy
                     if (File.Exists(filePath))
                     {
                         // Informa o Agregador que irá enviar dados
-                        SendMessage($"DATA:{fileName}");
-                        Console.WriteLine($"[WAVY] Enviado: DATA:{fileName}");
+                        SendMessage($"SEND:{fileName}");
+                        Console.WriteLine($"[WAVY] Enviado: SEND:{fileName}");
 
                         // Envia cada linha do ficheiro com o seu ID no início
                         foreach (string line in File.ReadLines(filePath))
@@ -138,7 +138,7 @@ class Wavy
                 response = ReceiveMessage();
 
                 Console.WriteLine($"[WAVY] Recebido: {response}");
-                if (response == "400 CLOSED")
+                if (response == "410 CLOSED")
                 {
                     break; // Sai do ciclo quando recebe a confirmação de desconexão
                 }

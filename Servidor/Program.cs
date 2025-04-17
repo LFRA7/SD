@@ -53,7 +53,7 @@ class Servidor
                         Console.WriteLine("[SERVIDOR] Enviado: 200 READY");
                     }
                     // Processamento do comando DATA para receber dados
-                    else if (msg.StartsWith("DATA:"))
+                    else if (msg.StartsWith("SEND:"))
                     {
                         // Usa um mutex para garantir acesso exclusivo aos ficheiros
                         mutex.WaitOne();
@@ -104,8 +104,8 @@ class Servidor
                     // Processamento do comando QUIT para terminar a conexão
                     else if (msg == "QUIT")
                     {
-                        writer.WriteLine("400 CLOSED");
-                        Console.WriteLine("[SERVIDOR] Enviado: 400 CLOSED");
+                        writer.WriteLine("410 CLOSED");
+                        Console.WriteLine("[SERVIDOR] Enviado: 410 CLOSED");
                         break; // Sai do ciclo para encerrar a conexão
                     }
                 }
