@@ -17,10 +17,10 @@ class Wavy
     {
         string aggregatorIP = "127.0.0.1";
         int aggregatorPort = 5000;
-        string wavyId;
 
-        Console.Write("Digite o ID do Wavy: ");
-        wavyId = Console.ReadLine();
+        string wavyId = "";
+        string response = "";
+        bool idAccepted = false;
 
         try
         {
@@ -28,13 +28,35 @@ class Wavy
             stream = client.GetStream();
             Console.WriteLine("[WAVY] Conexão estabelecida com o Agregador.");
 
-            // Envia HELLO
-            SendMessage($"HELLO:{wavyId}");
-            Console.WriteLine($"[WAVY] Enviado: HELLO:{wavyId}");
+            while (!idAccepted)
+            {
+                Console.Write("Digite o ID do Wavy: ");
+                wavyId = Console.ReadLine();
 
-            // Lê resposta do Agregador
-            string response = ReceiveMessage();
-            Console.WriteLine($"[WAVY] Recebido: {response}");
+                // Envia HELLO
+                SendMessage($"HELLO:{wavyId}");
+                Console.WriteLine($"[WAVY] Enviado: HELLO:{wavyId}");
+
+                // Lê resposta do Agregador
+                response = ReceiveMessage();
+                Console.WriteLine($"[WAVY] Recebido: {response}");
+
+                if (response == "100 OK")
+                {
+                    idAccepted = true;
+                    Console.WriteLine("[WAVY] ID aceito pelo Agregador.");
+                }
+                else if (response == "401 ID_IN_USE")
+                {
+                    Console.WriteLine("[WAVY] Este ID já está em uso. Por favor, escolha outro ID.");
+                    // Continua no loop para solicitar novo ID
+                }
+                else
+                {
+                    Console.WriteLine($"[WAVY] Resposta inesperada do Agregador: {response}");
+                    // Para outros erros, também solicitamos um novo ID
+                }
+            }
 
             // Loop de comandos
             string command;
@@ -55,7 +77,10 @@ class Wavy
 
                         foreach (string line in File.ReadLines(filePath))
                         {
-                            SendMessage(line);
+                            // Adiciona o wavyId no início de cada linha
+                            string modifiedLine = $"{wavyId}:{line}";
+                            SendMessage(modifiedLine);
+                            Console.WriteLine($"[WAVY] Enviado: {modifiedLine}");
                         }
                         SendMessage("END");
                         Console.WriteLine($"[WAVY] Enviado conteúdo do arquivo: {fileName}");
