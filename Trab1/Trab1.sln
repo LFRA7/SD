@@ -17,11 +17,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Servidor", "..\Servidor\Ser
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wavy", "..\Wavy\Wavy.csproj", "{290179F2-A36E-47A9-9D16-3103FA81B30B}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Data", "Data", "{DB2DFDC5-82D2-4666-A196-89E0571D9270}"
-	ProjectSection(SolutionItems) = preProject
-		..\Agregador\Data\Dados.csv = ..\Agregador\Data\Dados.csv
-	EndProjectSection
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

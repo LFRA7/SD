@@ -19,7 +19,7 @@ class Agregador
         int listenPort = 5000;
         TcpListener listener = new TcpListener(IPAddress.Any, listenPort);
         listener.Start();
-        Console.WriteLine("[AGREGADOR] Agregador ligado!");
+        Console.WriteLine("[AGREGADOR] Agregador Conectado!");
 
         // Criação de Threads para lidar com várias Wavys
         while (true)
