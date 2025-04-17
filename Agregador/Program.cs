@@ -138,7 +138,7 @@ class Agregador
 
                             // Verifica se o ficheiro atingiu o limite para envio ao servidor
                             int lineCount = File.ReadLines(filePath).Count();
-                            if (lineCount >= 20)
+                            if (lineCount >= 5)
                             {
                                 shouldSendToServer = true;
                             }
