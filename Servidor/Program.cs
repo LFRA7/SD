@@ -8,6 +8,7 @@ using System.Threading;
 
 class Servidor
 {
+    private static Mutex mutex = new Mutex();
     static void Main()
     {
         int port = 6000;
@@ -46,31 +47,45 @@ class Servidor
                     }
                     else if (msg.StartsWith("DATA:"))
                     {
-                        string fileName = msg.Substring(5).Trim();
-                        string currentDate = DateTime.Now.ToString("dd-MM-yyyy");
-                        string currentTime = DateTime.Now.ToString("HH-mm");
-                        string newFileName = $"Dados-{currentDate}_{currentTime}-{fileName}";
-                        string filePath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", newFileName);
-                        Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
-                        writer.WriteLine("100 OK");
-                        Console.WriteLine($"[SERVIDOR] A Guardar {newFileName}...");
+                        mutex.WaitOne();
 
-                        using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+                        try
                         {
-                            string fileContent;
-                            while ((fileContent = reader.ReadLine()) != null)
-                            {
-                                if (fileContent == "END") break;
-                                byte[] contentBytes = Encoding.UTF8.GetBytes(fileContent + Environment.NewLine);
-                                fileStream.Write(contentBytes, 0, contentBytes.Length);
-                                fileStream.Flush();
-                                Console.WriteLine($"[SERVIDOR] Gravado: {fileContent}");
-                            }
-                        }
+                            string fileName = msg.Substring(5).Trim();
+                            string currentDate = DateTime.Now.ToString("dd-MM-yyyy");
+                            string currentTime = DateTime.Now.ToString("HH-mm-ss");
+                            string newFileName = $"Dados-{currentDate}_{currentTime}-{fileName}";
+                            string filePath = Path.Combine(@"C:\\Users\\lucas\\source\\repos\\LFRA7\\SD\\Servidor\\Data", newFileName);
+                            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
-                        writer.WriteLine("100 OK");
-                        Console.WriteLine($"[SERVIDOR] Arquivo {newFileName} salvo com sucesso.");
+                            Console.WriteLine($"[SERVIDOR] A Guardar: {newFileName}");
+
+                            writer.WriteLine("100 OK");
+                            Console.WriteLine($"[SERVIDOR] Enviado: 100 OK (pronto para receber dados)");
+
+                            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+                            {
+                                string fileContent;
+                                while ((fileContent = reader.ReadLine()) != null)
+                                {
+                                    if (fileContent == "END") break; // Aguarda até receber "END"
+
+                                    // Write the content plus the newline that ReadLine removes
+                                    byte[] contentBytes = Encoding.UTF8.GetBytes(fileContent + Environment.NewLine);
+                                    fileStream.Write(contentBytes, 0, contentBytes.Length);
+                                    fileStream.Flush();
+
+                                    Console.WriteLine($"[SERVIDOR] Gravado: {fileContent}");
+                                }
+                            }
+                            writer.WriteLine("100 OK");  // Confirma que o arquivo foi salvo
+                            Console.WriteLine($"[SERVIDOR] Arquivo {newFileName} salvo com sucesso.");
+                        }
+                        finally
+                        {
+                            mutex.ReleaseMutex();
+                        }                      
                     }
                     else if (msg == "QUIT")
                     {
@@ -91,7 +106,7 @@ class Servidor
             finally
             {
                 client.Close();
-                Console.WriteLine("[SERVIDOR] Cliente desconectado.");
+                Console.WriteLine("[SERVIDOR] Agregador desconectado.");
             }
         }
     }
