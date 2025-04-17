@@ -101,8 +101,8 @@ class Servidor
                             mutex.ReleaseMutex();
                         }
                     }
-                    // Processamento do comando QUIT para terminar a conexão
-                    else if (msg == "QUIT")
+                    // Processamento do comando DISCONNECT para terminar a conexão
+                    else if (msg == "DISCONNECT")
                     {
                         writer.WriteLine("410 CLOSED");
                         Console.WriteLine("[SERVIDOR] Enviado: 410 CLOSED");

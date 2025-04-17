@@ -242,8 +242,8 @@ class Agregador
                         //Informa o Wavy que o estado foi atualizado
                         Console.WriteLine($"[AGREGADOR] Enviado ao WAVY: 200 READY - Estado atualizado para {estado}");
                     }
-                    // Processamento do comando QUIT para terminar a conexão
-                    else if (msg == "QUIT")
+                    // Processamento do comando DISCONNECT para terminar a conexão
+                    else if (msg == "DISCONNECT")
                     {
                         // Envia confirmação de encerramento
                         wavyWriter.WriteLine("410 CLOSED");
@@ -251,7 +251,7 @@ class Agregador
                         Console.WriteLine("[AGREGADOR] A aguardar resposta do servidor");
 
                         // Notifica o servidor sobre a desconexão
-                        string serverResponse = SendToServer("QUIT");
+                        string serverResponse = SendToServer("DISCONNECT");
                         Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {serverResponse}");
 
                         // Atualiza o estado do Wavy para Desativado
@@ -326,7 +326,7 @@ class Agregador
 
             // Aguarda resposta apenas para comandos específicos
             string response = "NO_RESPONSE";
-            if (message.StartsWith("SEND:") || message.StartsWith("HELLO:") || message == "QUIT" || message == "END")
+            if (message.StartsWith("SEND:") || message.StartsWith("HELLO:") || message == "DISCONNECT" || message == "END")
             {
                 response = reader.ReadLine();
                 Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");

@@ -65,7 +65,7 @@ class Wavy
             string command;
             do
             {
-                Console.Write("Digite o comando (ou QUIT para sair): ");
+                Console.Write("Digite o comando (ou DISCONNECT para sair): ");
                 command = Console.ReadLine();
 
                 // Comando SEND para envio de ficheiros
@@ -117,8 +117,8 @@ class Wavy
                     }
 
                 }
-                // Comando QUIT para encerrar a conexão
-                else if (command != "QUIT")
+                // Comando DISCONNECT para encerrar a conexão
+                else if (command != "DISCONNECT")
                 {
                     SendMessage(command);
                     Console.WriteLine($"[WAVY] Enviado: {command}");
@@ -126,11 +126,11 @@ class Wavy
                     Console.WriteLine($"[WAVY] Recebido: {response}");
                 }
 
-            } while (command != "QUIT");
+            } while (command != "DISCONNECT");
 
             // Processo de encerramento da conexão
-            SendMessage("QUIT");
-            Console.WriteLine("[WAVY] Enviado: QUIT");
+            SendMessage("DISCONNECT");
+            Console.WriteLine("[WAVY] Enviado: DISCONNECT");
 
             // Aguarda a confirmação de desconexão do Agregador
             while (true)
