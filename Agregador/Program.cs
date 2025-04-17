@@ -71,10 +71,34 @@ class Agregador
                             // Atualiza o estado do Wavy para Associado
                             UpdateWavyStatus(currentWavyId, "Associado");
 
-                            // Envia confirmação de sucesso
+                            // Envia confirmação de sucesso ao WAVY
                             wavyWriter.WriteLine("200 READY");
                             wavyWriter.Flush();
                             Console.WriteLine("[AGREGADOR] Enviado ao WAVY: 200 READY");
+
+                            // Envia o HELLO para o SERVIDOR
+                            try
+                            {
+                                TcpClient serverClient = new TcpClient("127.0.0.1", 6000);
+                                NetworkStream serverStream = serverClient.GetStream();
+                                StreamReader serverReader = new StreamReader(serverStream, Encoding.UTF8);
+                                StreamWriter serverWriter = new StreamWriter(serverStream, Encoding.UTF8) { AutoFlush = true };
+
+                                serverWriter.WriteLine($"HELLO:{currentWavyId}");
+                                Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: HELLO:{currentWavyId}");
+
+                                string serverResponse = serverReader.ReadLine();
+                                Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {serverResponse}");
+
+                                if (serverResponse != "200 READY")
+                                {
+                                    Console.WriteLine("[AGREGADOR] Erro: O servidor não aceitou o HELLO ID.");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[AGREGADOR] Erro ao comunicar com o SERVIDOR: {ex.Message}");
+                            }
                         }
                     }
                     // Processamento do comando DATA para receber dados
