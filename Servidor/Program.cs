@@ -1,21 +1,26 @@
 ﻿// Servidor/Program.cs
 using System;
-using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 
+
 class Servidor
 {
+    // Mutex para garantir acesso exclusivo ao sistema de ficheiros
     private static Mutex mutex = new Mutex();
+
+
     static void Main()
     {
+        // Configuração da porta de escuta
         int port = 6000;
         TcpListener listener = new TcpListener(IPAddress.Any, port);
         listener.Start();
-        Console.WriteLine("[SERVIDOR] A escutar na porta " + port);
+        Console.WriteLine("[SERVIDOR] Servido ligado!");
 
+        // Criação de Threads para lidar com várias Wavys
         while (true)
         {
             TcpClient client = listener.AcceptTcpClient();
@@ -23,6 +28,7 @@ class Servidor
             t.Start(client);
         }
     }
+
 
     static void HandleClient(object obj)
     {
@@ -40,18 +46,21 @@ class Servidor
 
                     Console.WriteLine($"[SERVIDOR] Recebido: {msg}");
 
+                    // Processamento do comando HELLO para confirmação de conexão
                     if (msg.StartsWith("HELLO:"))
                     {
-                        writer.WriteLine("100 OK");
-                        Console.WriteLine("[SERVIDOR] Enviado: 100 OK");
+                        writer.WriteLine("200 READY");
+                        Console.WriteLine("[SERVIDOR] Enviado: 200 READY");
                     }
+                    // Processamento do comando DATA para receber dados
                     else if (msg.StartsWith("DATA:"))
                     {
-
+                        // Usa um mutex para garantir acesso exclusivo aos ficheiros
                         mutex.WaitOne();
 
                         try
                         {
+                            // Extrai o nome do ficheiro e cria um novo nome com o horário atual
                             string fileName = msg.Substring(5).Trim();
                             string currentDate = DateTime.Now.ToString("dd-MM-yyyy");
                             string currentTime = DateTime.Now.ToString("HH-mm-ss");
@@ -59,19 +68,21 @@ class Servidor
                             string filePath = Path.Combine(@"C:\\Users\\lucas\\source\\repos\\LFRA7\\SD\\Servidor\\Data", newFileName);
                             Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
-                            Console.WriteLine($"[SERVIDOR] A Guardar: {newFileName}");
+                            Console.WriteLine($"[SERVIDOR] A Guardar {newFileName}...");
 
-                            writer.WriteLine("100 OK");
-                            Console.WriteLine($"[SERVIDOR] Enviado: 100 OK (pronto para receber dados)");
+                            // Envia confirmação de que está pronto para receber dados
+                            writer.WriteLine("200 READY");
+                            Console.WriteLine("[SERVIDOR] Enviado: 200 READY (pronto para receber dados)");
 
+                            // Guarda os dados recebidos no ficheiro
                             using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
                             {
                                 string fileContent;
                                 while ((fileContent = reader.ReadLine()) != null)
                                 {
-                                    if (fileContent == "END") break; // Aguarda até receber "END"
+                                    if (fileContent == "END") break; // Finaliza quando recebe o marcador END
 
-                                    // Write the content plus the newline that ReadLine removes
+                                    // Converte o conteúdo para bytes e escreve no ficheiro
                                     byte[] contentBytes = Encoding.UTF8.GetBytes(fileContent + Environment.NewLine);
                                     fileStream.Write(contentBytes, 0, contentBytes.Length);
                                     fileStream.Flush();
@@ -79,19 +90,23 @@ class Servidor
                                     Console.WriteLine($"[SERVIDOR] Gravado: {fileContent}");
                                 }
                             }
-                            writer.WriteLine("100 OK");  // Confirma que o arquivo foi salvo
-                            Console.WriteLine($"[SERVIDOR] Arquivo {newFileName} salvo com sucesso.");
+
+                            // Confirma que os dados foram guardados com sucesso
+                            writer.WriteLine("200 READY");
+                            Console.WriteLine($"[SERVIDOR] O Arquivo {newFileName} foi guardado com sucesso.");
                         }
                         finally
                         {
+                            // Liberta o mutex após processar os dados
                             mutex.ReleaseMutex();
-                        }                      
+                        }
                     }
+                    // Processamento do comando QUIT para terminar a conexão
                     else if (msg == "QUIT")
                     {
-                        writer.WriteLine("400 BYE");
-                        Console.WriteLine("[SERVIDOR] Enviado: 400 BYE");
-                        break; // Exit the processing loop
+                        writer.WriteLine("400 CLOSED");
+                        Console.WriteLine("[SERVIDOR] Enviado: 400 CLOSED");
+                        break; // Sai do ciclo para encerrar a conexão
                     }
                 }
             }
@@ -105,8 +120,7 @@ class Servidor
             }
             finally
             {
-                client.Close();
-                Console.WriteLine("[SERVIDOR] Agregador desconectado.");
+                client.Close(); // Garante que o cliente seja fechado ao sair
             }
         }
     }
