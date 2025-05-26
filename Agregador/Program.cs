@@ -6,12 +6,16 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Grpc.Net.Client;
+using GrpcGreeterClient;
 
 
 class Agregador
 {
     // Mutex para garantir acesso exclusivo aos recursos partilhados
     private static Mutex mutex = new Mutex();
+    private NetworkStream stream;
 
     static void Main()
     {
@@ -31,7 +35,7 @@ class Agregador
     }
 
 
-    static void HandleClient(object obj)
+    static async void HandleClient(object obj)
     {
         // Varável para armazenar o ID da Wavy atual
         string currentWavyId = "unknown";
@@ -223,6 +227,21 @@ class Agregador
                             mutex.ReleaseMutex();
                         }
                     }
+
+                    else if (msg.StartsWith("OLA"))
+                    {
+                        SendToServer("OLA");
+
+
+                        using var channel = GrpcChannel.ForAddress("https://localhost:7190");
+                        var client = new Greeter.GreeterClient(channel);
+                        var reply = await client.SayHelloAsync(
+                                          new HelloRequest { Name = "GreeterClient" });
+                        Console.WriteLine("Greeting: " + reply.Message);
+                        Console.WriteLine("Press any key to exit...");
+                        Console.ReadKey();
+                    }
+
                     // Comando para atualizar o estado do Wavy para "Operação" ou "Manutenção"
                     else if (msg.StartsWith("ESTADO "))
                     {
@@ -326,7 +345,7 @@ class Agregador
 
             // Aguarda resposta apenas para comandos específicos
             string response = "NO_RESPONSE";
-            if (message.StartsWith("SEND:") || message.StartsWith("HELLO:") || message == "DISCONNECT" || message == "END")
+            if (message.StartsWith("DATA:") || message.StartsWith("HELLO:") || message == "OLA" || message == "QUIT" || message == "END")
             {
                 response = reader.ReadLine();
                 Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");
