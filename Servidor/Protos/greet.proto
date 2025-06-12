@@ -19,3 +19,33 @@ message HelloRequest {
 message HelloReply {
   string message = 1;
 }
+
+// The statistics service definition.Add commentMore actions
+service Calculator {
+  // Calculates average of values
+  rpc CalculateAverage (CalculateRequest) returns (CalculateReply);
+
+   // Novo: encontrar o menor valor
+  rpc FindMinimum (CalculateRequest) returns (MinMaxReply);
+
+  // Novo: encontrar o maior valor
+  rpc FindMaximum (CalculateRequest) returns (MinMaxReply);
+}
+
+// The request message containing the file name and values.
+message CalculateRequest {
+  string fileName = 1;
+  repeated double values = 2;
+}
+
+// The response message containing the calculated average and a status message.
+message CalculateReply {
+  double average = 1;
+  string message = 2;
+}
+
+// Nova mensagem de resposta para mínimo/máximo
+message MinMaxReply {
+  double value = 1;
+  string message = 2;
+}
