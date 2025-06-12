@@ -1,4 +1,4 @@
-syntax = "proto3";Add commentMore actions
+syntax = "proto3";
 
 option csharp_namespace = "GrpcGreeterClient2";
 
