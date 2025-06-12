@@ -86,7 +86,7 @@ namespace MyApplicationNamespace
         {
             try
             {
-                string dataPath = Path.Combine(@"C:\Users\mcpin\source\repos\SD-PL1-GP5\Servidor\Data", fileName);
+                string dataPath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", fileName);
 
                 if (!File.Exists(dataPath))
                 {
@@ -136,7 +136,7 @@ namespace MyApplicationNamespace
         {
             try
             {
-                string dataPath = Path.Combine(@"C:\Users\mcpin\source\repos\SD-PL1-GP5\Servidor\Data", fileName);
+                string dataPath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", fileName);
 
                 if (!File.Exists(dataPath))
                 {
@@ -185,7 +185,7 @@ namespace MyApplicationNamespace
         {
             try
             {
-                string dataPath = Path.Combine(@"C:\Users\mcpin\source\repos\SD-PL1-GP5\Servidor\Data", fileName);
+                string dataPath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", fileName);
 
                 if (!File.Exists(dataPath))
                 {
@@ -272,7 +272,7 @@ namespace MyApplicationNamespace
                                 string currentDate = DateTime.Now.ToString("dd-MM-yyyy");
                                 string currentTime = DateTime.Now.ToString("HH-mm-ss");
                                 string newFileName = $"Dados-{currentDate}_{currentTime}-{fileName}";
-                                string filePath = Path.Combine(@"C:\Users\mcpin\source\repos\SD-PL1-GP5\Servidor\Data", newFileName);
+                                string filePath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", newFileName);
                                 Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
                                 Console.WriteLine($"[SERVIDOR] A Guardar {newFileName}...");
