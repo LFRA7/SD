@@ -23,7 +23,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="Data\" />
 	  <ProjectReference Include="..\Models\Models.csproj" />
 	</ItemGroup>
 
