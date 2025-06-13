@@ -2,6 +2,8 @@
 using Grpc.Net.Client;
 using GrpcGreeterClient;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.EntityFrameworkCore;
+using Models;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System;
@@ -13,30 +15,18 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-
 class Agregador
 {
-    // Mutex para garantir acesso exclusivo aos recursos partilhados
-    private static Mutex mutex = new Mutex();
-    private NetworkStream stream;
+    private static ApplicationDbContext dbContext;
 
-    static void Main()
+    static async Task Main(string[] args)
     {
-        // Configuração da porta de escuta
-        int listenPort = 5000;
-        TcpListener listener = new TcpListener(IPAddress.Any, listenPort);
-        listener.Start();
-        Console.WriteLine("[AGREGADOR] Agregador ligado!");
+        // Configure database context
+        var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
+        optionsBuilder.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=SensorDataNew;Trusted_Connection=True;MultipleActiveResultSets=true");
+        dbContext = new ApplicationDbContext(optionsBuilder.Options);
+        await dbContext.Database.EnsureCreatedAsync();
 
-
-        Subscribe(Environment.GetCommandLineArgs()).GetAwaiter().GetResult();
-
-    }
-
-
-
-    static async Task Subscribe(string[] args)
-    {
         Console.Write("Digite o(s) tópico(s) a subscrever (separados por vírgula, ex: temperatura,humidade): ");
         string input = Console.ReadLine();
         var topics = input.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -73,64 +63,34 @@ class Agregador
 
             Console.WriteLine($"[AGREGADOR] Recebido de '{routingKey}': {message}");
 
-            // Enviar para o gRPC
-            using var grpcChannel = GrpcChannel.ForAddress("https://localhost:7190");
-            var grpcClient = new Greeter.GreeterClient(grpcChannel);
-            var grpcReply = await grpcClient.SendSensorDataAsync(
-                new SensorDataRequest
-                {
-                    Topic = routingKey,
-                    Data = message
-                }
-            );
-            Console.WriteLine($"[AGREGADOR][gRPC] Resposta: {grpcReply.Message}");
-
-            // Guardar a resposta do RPC no ficheiro do canal
-            string filePath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Agregador\Data", $"Dados-{routingKey}.csv");
-            Directory.CreateDirectory("Data");
-            await File.AppendAllTextAsync(filePath, grpcReply.Message + Environment.NewLine);
-
-            // Verificar se o ficheiro tem 40 ou mais linhas
-            int lineCount = File.ReadLines(filePath).Count();
-            if (lineCount >= 40)
+            // Parse message
+            var parts = message.Split(':');
+            if (parts.Length != 2 || !double.TryParse(parts[1], out double value))
             {
-                Console.WriteLine($"[AGREGADOR] O arquivo {filePath} atingiu {lineCount} linhas. A enviar para o servidor...");
+                Console.WriteLine($"[AGREGADOR] Formato de mensagem inválido: {message}");
+                return;
+            }
 
-                // Lê o conteúdo do ficheiro
-                var fileLines = await File.ReadAllLinesAsync(filePath);
+            // Save to database
+            var sensorData = new SensorData
+            {
+                WavyId = parts[0],
+                Topic = routingKey,
+                Value = value,
+                Timestamp = DateTime.UtcNow,
+                Processed = false
+            };
 
-                // Abre uma única conexão para todo o envio
-                using (var client = new TcpClient("127.0.0.1", 6000))
-                using (var stream = client.GetStream())
-                using (var reader = new StreamReader(stream, Encoding.UTF8))
-                using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
-                {
-                    // Envia o comando DATA
-                    writer.WriteLine($"DATA:{routingKey}.csv");
-                    Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: DATA:{routingKey}.csv");
+            await dbContext.SensorData.AddAsync(sensorData);
+            await dbContext.SaveChangesAsync();
 
-                    // Aguarda resposta do servidor
-                    var response = reader.ReadLine();
-                    Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");
+            // Check if we have 5 unprocessed records for this topic
+            var unprocessedCount = await dbContext.SensorData
+                .CountAsync(s => s.Topic == routingKey && !s.Processed);
 
-                    // Envia cada linha do ficheiro
-                    foreach (var line in fileLines)
-                    {
-                        writer.WriteLine(line);
-                        Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: {line}");
-                    }
-
-                    // Envia END
-                    writer.WriteLine("END");
-                    Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: END");
-
-                    // Aguarda confirmação final
-                    response = reader.ReadLine();
-                    Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");
-                }
-
-                // Limpa o ficheiro após envio
-                File.WriteAllText(filePath, string.Empty);
+            if (unprocessedCount >= 5)
+            {
+                await ProcessTopicData(routingKey);
             }
         };
 
@@ -140,4 +100,68 @@ class Agregador
         Console.ReadLine();
     }
 
+    static async Task ProcessTopicData(string topic)
+    {
+        try
+        {
+            // Get 5 unprocessed records
+            var records = await dbContext.SensorData
+                .Where(s => s.Topic == topic && !s.Processed)
+                .OrderBy(s => s.Timestamp)
+                .Take(5)
+                .ToListAsync();
+
+            if (records.Count < 5) return;
+
+            // Mark records as processed
+            foreach (var record in records)
+            {
+                record.Processed = true;
+            }
+            await dbContext.SaveChangesAsync();
+
+            // Send to server
+            using (var client = new TcpClient("127.0.0.1", 6000))
+            using (var stream = client.GetStream())
+            using (var reader = new StreamReader(stream, Encoding.UTF8))
+            using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
+            {
+                // Send DATA command
+                writer.WriteLine($"DATA:{topic}");
+                Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: DATA:{topic}");
+
+                // Wait for server response
+                var response = reader.ReadLine();
+                Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");
+
+                // Send each record
+                foreach (var record in records)
+                {
+                    string message = $"{record.WavyId}:{record.Value}";
+                    writer.WriteLine(message);
+                    Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: {message}");
+                }
+
+                // Send END
+                writer.WriteLine("END");
+                Console.WriteLine($"[AGREGADOR] Enviado ao SERVIDOR: END");
+
+                // Wait for final confirmation
+                response = reader.ReadLine();
+                Console.WriteLine($"[AGREGADOR] Resposta do SERVIDOR: {response}");
+
+                // If successfully sent, delete the records from the aggregator's database
+                if (response == "100 OK") // Assuming server sends "100 OK" upon successful data reception
+                {
+                    dbContext.SensorData.RemoveRange(records);
+                    await dbContext.SaveChangesAsync();
+                    Console.WriteLine($"[AGREGADOR] Dados processados para o tópico {topic} removidos da base de dados.");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AGREGADOR] Erro ao processar dados do tópico {topic}: {ex.Message}");
+        }
+    }
 }

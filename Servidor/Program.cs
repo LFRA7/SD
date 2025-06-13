@@ -10,22 +10,28 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
+using Models;
 
 namespace MyApplicationNamespace
 {
     class Servidor
     {
-        // Mutex para garantir acesso exclusivo ao sistema de ficheiros
-        private static Mutex mutex = new Mutex();
+        private static ApplicationDbContext? dbContext;
 
-
-        static void Main()
+        static async Task Main()
         {
+            // Configure database context
+            var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
+            optionsBuilder.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=SensorDataNew;Trusted_Connection=True;MultipleActiveResultSets=true");
+            dbContext = new ApplicationDbContext(optionsBuilder.Options);
+            await dbContext.Database.EnsureCreatedAsync();
+
             // Configuração da porta de escuta
             int port = 6000;
             TcpListener listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
-            Console.WriteLine("[SERVIDOR] Servido ligado!");
+            Console.WriteLine("[SERVIDOR] Servidor ligado!");
 
             // Thread para aceitar clientes
             Thread acceptThread = new Thread(() =>
@@ -33,6 +39,7 @@ namespace MyApplicationNamespace
                 while (true)
                 {
                     TcpClient client = listener.AcceptTcpClient();
+                    // Pass the client object to HandleClient
                     Thread t = new Thread(HandleClient);
                     t.Start(client);
                 }
@@ -44,7 +51,7 @@ namespace MyApplicationNamespace
             Console.WriteLine("[SERVIDOR] Digite comandos aqui (digite 'exit' para sair):");
             while (true)
             {
-                string input = Console.ReadLine();
+                string? input = Console.ReadLine();
                 if (string.IsNullOrEmpty(input))
                     continue;
 
@@ -56,62 +63,79 @@ namespace MyApplicationNamespace
                 }
                 else if (input.ToLower().StartsWith("media "))
                 {
-                    // Processamento do comando media para calcular média de um arquivo
-                    ProcessMediaCommand(input.Substring(6).Trim());
+                    await ProcessMediaCommand(input.Substring(6).Trim());
                 }
                 else if (input.ToLower().StartsWith("min "))
                 {
-                    // Processamento do comando media para calcular média de um arquivo
-                    ProcessMinCommand(input.Substring(4).Trim());
+                    await ProcessMinCommand(input.Substring(4).Trim());
                 }
                 else if (input.ToLower().StartsWith("max "))
                 {
-                    // Processamento do comando media para calcular média de um arquivo
-                    ProcessMaxCommand(input.Substring(4).Trim());
-                }
-                else if (input.ToLower() == "quit")
-                {
-                    Console.WriteLine("[SERVIDOR] A encerrar servidor...");
-                    listener.Stop();
-                    break;
+                    await ProcessMaxCommand(input.Substring(4).Trim());
                 }
                 else
                 {
-                    Console.WriteLine($"[SERVIDOR] Comando inserido: {input}");
-                    // Aqui pode adicionar lógica para processar outros comandos do servidor
+                    Console.WriteLine($"[SERVIDOR] Comando desconhecido: {input}");
                 }
             }
         }
-        static async void ProcessMinCommand(string fileName)
+
+        static async Task ProcessMediaCommand(string topic)
         {
             try
             {
-                string dataPath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", fileName);
-
-                if (!File.Exists(dataPath))
+                if (dbContext == null)
                 {
-                    Console.WriteLine($"[SERVIDOR] Erro: Arquivo {fileName} não encontrado.");
+                    Console.WriteLine("[SERVIDOR] Erro: Contexto da base de dados não inicializado.");
                     return;
                 }
 
-                Regex regex = new Regex(@"^.*?:\s*(\d+)", RegexOptions.Compiled);
-                List<double> valores = new List<double>();
-                using (StreamReader reader = new StreamReader(dataPath))
+                var values = await dbContext.SensorDataProcessed
+                    .Where(s => s.Topic == topic)
+                    .Select(s => s.Value)
+                    .ToListAsync();
+
+                if (!values.Any())
                 {
-                    string line;
-                    while ((line = reader.ReadLine()) != null)
-                    {
-                        var match = regex.Match(line);
-                        if (match.Success && int.TryParse(match.Groups[1].Value, out int valor))
-                        {
-                            valores.Add(valor);
-                        }
-                    }
+                    Console.WriteLine($"[SERVIDOR] Nenhum dado encontrado para o tópico {topic}");
+                    return;
                 }
 
-                if (valores.Count == 0)
+                using var channel = GrpcChannel.ForAddress("https://localhost:7220");
+                var calculatorClient = new Calculator.CalculatorClient(channel);
+                var reply = await calculatorClient.CalculateAverageAsync(
+                    new CalculateRequest
+                    {
+                        FileName = topic,
+                        Values = { values }
+                    });
+
+                Console.WriteLine($"[SERVIDOR] Média para {topic}: {reply.Average}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SERVIDOR] Erro ao processar comando media: {ex.Message}");
+            }
+        }
+
+        static async Task ProcessMinCommand(string topic)
+        {
+            try
+            {
+                if (dbContext == null)
                 {
-                    Console.WriteLine("[SERVIDOR] Erro: Nenhum valor numérico encontrado no arquivo.");
+                    Console.WriteLine("[SERVIDOR] Erro: Contexto da base de dados não inicializado.");
+                    return;
+                }
+
+                var values = await dbContext.SensorDataProcessed
+                    .Where(s => s.Topic == topic)
+                    .Select(s => s.Value)
+                    .ToListAsync();
+
+                if (!values.Any())
+                {
+                    Console.WriteLine($"[SERVIDOR] Nenhum dado encontrado para o tópico {topic}");
                     return;
                 }
 
@@ -120,11 +144,11 @@ namespace MyApplicationNamespace
                 var reply = await calculatorClient.FindMinimumAsync(
                     new CalculateRequest
                     {
-                        FileName = fileName,
-                        Values = { valores }
+                        FileName = topic,
+                        Values = { values }
                     });
 
-                Console.WriteLine($"[SERVIDOR] Resposta gRPC -> Menor valor: {reply.Value} ({reply.Message})");
+                Console.WriteLine($"[SERVIDOR] Mínimo para {topic}: {reply.Value}");
             }
             catch (Exception ex)
             {
@@ -132,36 +156,24 @@ namespace MyApplicationNamespace
             }
         }
 
-        static async void ProcessMaxCommand(string fileName)
+        static async Task ProcessMaxCommand(string topic)
         {
             try
             {
-                string dataPath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", fileName);
-
-                if (!File.Exists(dataPath))
+                if (dbContext == null)
                 {
-                    Console.WriteLine($"[SERVIDOR] Erro: Arquivo {fileName} não encontrado.");
+                    Console.WriteLine("[SERVIDOR] Erro: Base de dados não inicializada.");
                     return;
                 }
 
-                Regex regex = new Regex(@"^.*?:\s*(\d+)", RegexOptions.Compiled);
-                List<double> valores = new List<double>();
-                using (StreamReader reader = new StreamReader(dataPath))
-                {
-                    string line;
-                    while ((line = reader.ReadLine()) != null)
-                    {
-                        var match = regex.Match(line);
-                        if (match.Success && int.TryParse(match.Groups[1].Value, out int valor))
-                        {
-                            valores.Add(valor);
-                        }
-                    }
-                }
+                var values = await dbContext.SensorDataProcessed
+                    .Where(s => s.Topic == topic)
+                    .Select(s => s.Value)
+                    .ToListAsync();
 
-                if (valores.Count == 0)
+                if (!values.Any())
                 {
-                    Console.WriteLine("[SERVIDOR] Erro: Nenhum valor numérico encontrado no arquivo.");
+                    Console.WriteLine($"[SERVIDOR] Nenhum dado encontrado para o tópico {topic}");
                     return;
                 }
 
@@ -170,76 +182,26 @@ namespace MyApplicationNamespace
                 var reply = await calculatorClient.FindMaximumAsync(
                     new CalculateRequest
                     {
-                        FileName = fileName,
-                        Values = { valores }
+                        FileName = topic,
+                        Values = { values }
                     });
 
-                Console.WriteLine($"[SERVIDOR] Resposta gRPC -> Maior valor: {reply.Value} ({reply.Message})");
+                Console.WriteLine($"[SERVIDOR] Máximo para {topic}: {reply.Value}");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[SERVIDOR] Erro ao processar comando max: {ex.Message}");
             }
         }
-        static async void ProcessMediaCommand(string fileName)
+
+        static async void HandleClient(object? obj)
         {
-            try
+            if (obj is not TcpClient client)
             {
-                string dataPath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", fileName);
-
-                if (!File.Exists(dataPath))
-                {
-                    Console.WriteLine($"[SERVIDOR] Erro: Arquivo {fileName} não encontrado.");
-                    return;
-                }
-
-                Console.WriteLine($"[SERVIDOR] Lendo arquivo: {fileName}");
-
-                // Regex para capturar o número inteiro após o primeiro ':'
-                Regex regex = new Regex(@"^.*?:\s*(\d+)", RegexOptions.Compiled);
-
-                List<double> valores = new List<double>();
-                using (StreamReader reader = new StreamReader(dataPath))
-                {
-                    string line;
-                    while ((line = reader.ReadLine()) != null)
-                    {
-                        var match = regex.Match(line);
-                        if (match.Success && int.TryParse(match.Groups[1].Value, out int valor))
-                        {
-                            valores.Add(valor);
-                        }
-                    }
-                }
-
-                if (valores.Count == 0)
-                {
-                    Console.WriteLine("[SERVIDOR] Erro: Nenhum valor numérico encontrado no arquivo.");
-                    return;
-                }
-
-                // Enviar para o serviço gRPC
-                using var channel = GrpcChannel.ForAddress("https://localhost:7220");
-                var calculatorClient = new Calculator.CalculatorClient(channel);
-                var reply = await calculatorClient.CalculateAverageAsync(
-                          new CalculateRequest
-                          {
-                              FileName = fileName,
-                              Values = { valores }
-                          });
-
-                Console.WriteLine($"[SERVIDOR] Resposta do gRPC: {reply.Message}");
-                Console.WriteLine($"[SERVIDOR] Média calculada pelo serviço: {reply.Average}");
+                Console.WriteLine("[SERVIDOR] Erro: Objeto cliente inválido.");
+                return;
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[SERVIDOR] Erro ao processar comando media: {ex.Message}");
-            }
-        }
 
-        static async void HandleClient(object obj)
-        {
-            TcpClient client = (TcpClient)obj;
             using (NetworkStream stream = client.GetStream())
             using (var reader = new StreamReader(stream, Encoding.UTF8))
             using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
@@ -248,89 +210,72 @@ namespace MyApplicationNamespace
                 {
                     while (true)
                     {
-                        string msg = reader.ReadLine();
+                        string? msg = reader.ReadLine();
                         if (string.IsNullOrEmpty(msg)) break;
 
                         Console.WriteLine($"[SERVIDOR] Recebido: {msg}");
 
-                        // Processamento do comando HELLO para confirmação de conexão
-                        if (msg.StartsWith("HELLO:"))
+                        if (msg.StartsWith("DATA:"))
                         {
+                            string topic = msg.Substring(5).Trim();
                             writer.WriteLine("100 OK");
-                            Console.WriteLine("[SERVIDOR] Enviado: 100 OK");
-                        }
-                        // Processamento do comando DATA para receber dados
-                        else if (msg.StartsWith("DATA:"))
-                        {
-                            // Usa um mutex para garantir acesso exclusivo aos ficheiros
-                            mutex.WaitOne();
 
-                            try
+                            while (true)
                             {
-                                // Extrai o nome do ficheiro e cria um novo nome com o horário atual
-                                string fileName = msg.Substring(5).Trim();
-                                string currentDate = DateTime.Now.ToString("dd-MM-yyyy");
-                                string currentTime = DateTime.Now.ToString("HH-mm-ss");
-                                string newFileName = $"Dados-{currentDate}_{currentTime}-{fileName}";
-                                string filePath = Path.Combine(@"C:\Users\lucas\source\repos\LFRA7\SD\Servidor\Data", newFileName);
-                                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
-
-                                Console.WriteLine($"[SERVIDOR] A Guardar {newFileName}...");
-
-                                // Envia confirmação de que está pronto para receber dados
-                                writer.WriteLine("100 OK");
-                                Console.WriteLine("[SERVIDOR] Enviado: 100 OK (pronto para receber dados)");
-
-                                // Guarda os dados recebidos no ficheiro
-                                using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+                                string? data = reader.ReadLine();
+                                if (data == "END") break;
+                                if (string.IsNullOrEmpty(data))
                                 {
-                                    string fileContent;
-                                    while ((fileContent = reader.ReadLine()) != null)
-                                    {
-                                        if (fileContent == "END") break; // Finaliza quando recebe o marcador END
-
-                                        // Converte o conteúdo para bytes e escreve no ficheiro
-                                        byte[] contentBytes = Encoding.UTF8.GetBytes(fileContent + Environment.NewLine);
-                                        fileStream.Write(contentBytes, 0, contentBytes.Length);
-                                        fileStream.Flush();
-
-                                        Console.WriteLine($"[SERVIDOR] Gravado: {fileContent}");
-                                    }
+                                    continue; // Skip empty lines
                                 }
 
-                                // Confirma que os dados foram guardados com sucesso
-                                writer.WriteLine("100 OK");
-                                Console.WriteLine($"[SERVIDOR] O Arquivo {newFileName} foi guardado com sucesso.");
+                                var parts = data.Split(':');
+                                if (parts.Length == 2 && double.TryParse(parts[1], out double value))
+                                {
+                                    if (dbContext == null)
+                                    {
+                                        Console.WriteLine("[SERVIDOR] Erro: Contexto da base de dados não inicializado ao receber dados.");
+                                        break;
+                                    }
+
+                                    var sensorDataProcessed = new SensorDataProcessed
+                                    {
+                                        WavyId = parts[0],
+                                        Topic = topic,
+                                        Value = value,
+                                        Timestamp = DateTime.UtcNow
+                                    };
+
+                                    await dbContext.SensorDataProcessed.AddAsync(sensorDataProcessed);
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"[SERVIDOR] Formato de dados inválido recebido: {data}");
+                                }
                             }
-                            finally
+
+                            if (dbContext != null)
                             {
-                                // Liberta o mutex após processar os dados
-                                mutex.ReleaseMutex();
+                                await dbContext.SaveChangesAsync();
                             }
+                            writer.WriteLine("100 OK");
                         }
-                        // Processamento do comando QUIT para terminar a conexão
                         else if (msg == "QUIT")
                         {
                             writer.WriteLine("400 BYE");
-                            Console.WriteLine("[SERVIDOR] Enviado: 400 BYE");
-                            break; // Sai do ciclo para encerrar a conexão
+                            break;
                         }
                     }
                 }
-                catch (IOException ex)
-                {
-                    Console.WriteLine($"[SERVIDOR] Erro de conexão: {ex.Message}");
-                }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[SERVIDOR] Erro inesperado: {ex.Message}");
+                    Console.WriteLine($"[SERVIDOR] Erro: {ex.Message}");
                 }
                 finally
                 {
-                    client.Close(); // Garante que o cliente seja fechado ao sair
+                    client.Close();
                 }
             }
         }
-
     }
 }
