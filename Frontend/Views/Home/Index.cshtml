@@ -1,0 +1,105 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="container mt-4">
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @ViewBag.Error
+        </div>
+    }
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>Sensores Processados</h2>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Wavy ID</th>
+                            <th>Tópico</th>
+                            <th>Valor</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (ViewBag.ProcessedSensors != null)
+                        {
+                            @foreach (var sensor in ViewBag.ProcessedSensors)
+                            {
+                                <tr>
+                                    <td>@sensor.Id</td>
+                                    <td>@sensor.WavyId</td>
+                                    <td>@sensor.Topic</td>
+                                    <td>@sensor.Value.ToString("F2")</td>
+                                    <td>@sensor.Timestamp.ToString("g")</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <h2>Sensores a Processar</h2>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Wavy ID</th>
+                            <th>Tópico</th>
+                            <th>Valor</th>
+                            <th>Timestamp</th>
+                            <th>Processado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (ViewBag.UnprocessedSensors != null)
+                        {
+                            @foreach (var sensor in ViewBag.UnprocessedSensors)
+                            {
+                                <tr>
+                                    <td>@sensor.Id</td>
+                                    <td>@sensor.WavyId</td>
+                                    <td>@sensor.Topic</td>
+                                    <td>@sensor.Value.ToString("F2")</td>
+                                    <td>@sensor.Timestamp.ToString("g")</td>
+                                    <td>
+                                        <span class="badge bg-@(sensor.Processed ? "success" : "warning")">
+                                            @(sensor.Processed ? "Sim" : "Não")
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .table {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        
+        .badge {
+            font-size: 0.9em;
+            padding: 0.5em 0.8em;
+        }
+    </style>
+}

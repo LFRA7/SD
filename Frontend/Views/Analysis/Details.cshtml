@@ -1,0 +1,67 @@
+@model Frontend.Models.AnalysisResult
+
+@{
+    ViewData["Title"] = "Analysis Details";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a asp-action="Index">Analysis Results</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">@Model.Title</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="mb-0">@Model.Title</h2>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h5>Description</h5>
+                    <p>@Model.Description</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Status</h5>
+                    <span class="badge bg-@(Model.Status == "Completed" ? "success" : "warning")">@Model.Status</span>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h5>Analysis Date</h5>
+                    <p>@Model.AnalysisDate.ToString("g")</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <h5>Result Data</h5>
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <pre class="mb-0">@Model.ResultData</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .card {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+} 
